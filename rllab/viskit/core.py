@@ -21,11 +21,12 @@ def flatten(l):
     return [item for sublist in l for item in sublist]
 
 
-def load_progress(progress_csv_path):
+def load_progress(progress_csv_path, delimiter=None):
     print("Reading %s" % progress_csv_path)
     entries = dict()
     with open(progress_csv_path, 'r') as csvfile:
-        reader = csv.DictReader(csvfile)
+        # reader = csv.DictReader(csvfile)
+        reader = csv.DictReader(csvfile, delimiter=delimiter)
         for row in reader:
             for k, v in row.items():
                 if k not in entries:
@@ -93,7 +94,7 @@ def lookup(d, keys):
     return d
 
 
-def load_exps_data(exp_folder_paths,disable_variant=False):
+def load_exps_data(exp_folder_paths,disable_variant=False, delimiter=None):
     exps = []
     for exp_folder_path in exp_folder_paths:
         exps += [x[0] for x in os.walk(exp_folder_path)]
@@ -104,7 +105,7 @@ def load_exps_data(exp_folder_paths,disable_variant=False):
             params_json_path = os.path.join(exp_path, "params.json")
             variant_json_path = os.path.join(exp_path, "variant.json")
             progress_csv_path = os.path.join(exp_path, "progress.csv")
-            progress = load_progress(progress_csv_path)
+            progress = load_progress(progress_csv_path, delimiter=delimiter)
             if disable_variant:
                 params = load_params(params_json_path)
             else:

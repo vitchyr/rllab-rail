@@ -533,11 +533,12 @@ def index():
                               for k, v in distinct_params]),
     )
 
-def reload_data():
+def reload_data(delimiter=None):
     global exps_data
     global plottable_keys
     global distinct_params
-    exps_data = core.load_exps_data(args.data_paths,args.disable_variant)
+    exps_data = core.load_exps_data(args.data_paths,args.disable_variant,
+                                    delimiter=delimiter)
     plottable_keys = sorted(list(
         set(flatten(list(exp.progress.keys()) for exp in exps_data))))
     distinct_params = sorted(core.extract_distinct_params(exps_data))
@@ -550,6 +551,7 @@ if __name__ == "__main__":
     parser.add_argument("--debug", action="store_true", default=False)
     parser.add_argument("--port", type=int, default=5000)
     parser.add_argument("--disable-variant",default=False,action='store_true')
+    parser.add_argument("--delimiter", type=str, default=',')
     args = parser.parse_args(sys.argv[1:])
 
     # load all folders following a prefix
@@ -562,7 +564,7 @@ if __name__ == "__main__":
             if os.path.isdir(path) and (subdirprefix in subdirname):
                 args.data_paths.append(path)
     print("Importing data from {path}...".format(path=args.data_paths))
-    reload_data()
+    reload_data(delimiter=args.delimiter)
     # port = 5000
     # url = "http://0.0.0.0:{0}".format(port)
     print("Done! View http://localhost:%d in your browser" % args.port)
