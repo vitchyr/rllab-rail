@@ -173,8 +173,15 @@ def extract_distinct_params(exps_data, excluded_params=('exp_name', 'seed', 'log
         import ipdb; ipdb.set_trace()
     proposals = [(k, [x[1] for x in v])
                  for k, v in itertools.groupby(stringified_pairs, lambda x: x[0])]
-    filtered = [(k, v) for (k, v) in proposals if len(v) > l and all(
-        [k.find(excluded_param) != 0 for excluded_param in excluded_params])]
+    filtered = [
+        (k, v) for (k, v) in proposals
+        if k == 'version' or (
+            len(v) > l and all(
+                [k.find(excluded_param) != 0
+                 for excluded_param in excluded_params]
+            )
+        )
+    ]
     return filtered
 
 
