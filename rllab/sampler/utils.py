@@ -8,6 +8,7 @@ def rollout(env, agent, max_path_length=np.inf, animated=False, speedup=1,
     observations = []
     actions = []
     rewards = []
+    terminals = []
     agent_infos = []
     env_infos = []
     o = env.reset()
@@ -20,6 +21,7 @@ def rollout(env, agent, max_path_length=np.inf, animated=False, speedup=1,
         next_o, r, d, env_info = env.step(a)
         observations.append(env.observation_space.flatten(o))
         rewards.append(r)
+        terminals.append(d)
         actions.append(env.action_space.flatten(a))
         agent_infos.append(agent_info)
         env_infos.append(env_info)
@@ -38,6 +40,7 @@ def rollout(env, agent, max_path_length=np.inf, animated=False, speedup=1,
         observations=tensor_utils.stack_tensor_list(observations),
         actions=tensor_utils.stack_tensor_list(actions),
         rewards=tensor_utils.stack_tensor_list(rewards),
+        terminals=tensor_utils.stack_tensor_list(terminals),
         agent_infos=tensor_utils.stack_tensor_dict_list(agent_infos),
         env_infos=tensor_utils.stack_tensor_dict_list(env_infos),
     )
