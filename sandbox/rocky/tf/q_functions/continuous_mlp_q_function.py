@@ -1,27 +1,26 @@
-import lasagne
-import lasagne.layers as L
-import lasagne.nonlinearities as NL
-import lasagne.init
-import theano.tensor as TT
-from rllab.q_functions.base import QFunction
-from rllab.core.lasagne_powered import LasagnePowered
-from rllab.core.lasagne_layers import batch_norm
+from sandbox.rocky.tf.q_functions.base import QFunction
 from rllab.core.serializable import Serializable
 from rllab.misc import ext
 
+from sandbox.rocky.tf.core.layers_powered import LayersPowered
+from sandbox.rocky.tf.core.network import MLP
+from sandbox.rocky.tf.core.layers import batch_norm
+from sandbox.rocky.tf.distributions.categorical import Categorical
+from sandbox.rocky.tf.policies.base import StochasticPolicy
+from sandbox.rocky.tf.misc import tensor_utils
 
-class ContinuousMLPQFunction(QFunction, LasagnePowered):
+import tensorflow as tf
+import sandbox.rocky.tf.core.layers as L
+
+
+class ContinuousMLPQFunction(QFunction, LayersPowered, Serializable):
     def __init__(
             self,
             env_spec,
             hidden_sizes=(32, 32),
-            hidden_nonlinearity=NL.rectify,
-            hidden_W_init=lasagne.init.HeUniform(),
-            hidden_b_init=lasagne.init.Constant(0.),
+            hidden_nonlinearity=tf.nn.relu,
             action_merge_layer=-2,
             output_nonlinearity=None,
-            output_W_init=lasagne.init.Uniform(-3e-3, 3e-3),
-            output_b_init=lasagne.init.Uniform(-3e-3, 3e-3),
             bn=False):
         Serializable.quick_init(self, locals())
 
@@ -48,8 +47,6 @@ class ContinuousMLPQFunction(QFunction, LasagnePowered):
             l_hidden = L.DenseLayer(
                 l_hidden,
                 num_units=size,
-                W=hidden_W_init,
-                b=hidden_b_init,
                 nonlinearity=hidden_nonlinearity,
                 name="h%d" % (idx + 1)
             )
@@ -60,21 +57,19 @@ class ContinuousMLPQFunction(QFunction, LasagnePowered):
         l_output = L.DenseLayer(
             l_hidden,
             num_units=1,
-            W=output_W_init,
-            b=output_b_init,
             nonlinearity=output_nonlinearity,
             name="output"
         )
 
-        output_var = L.get_output(l_output, deterministic=True).flatten()
+        output_var = L.get_output(l_output, deterministic=True)
 
-        self._f_qval = ext.compile_function([l_obs.input_var, l_action.input_var], output_var)
+        self._f_qval = tensor_utils.compile_function([l_obs.input_var, l_action.input_var], output_var)
         self._output_layer = l_output
         self._obs_layer = l_obs
         self._action_layer = l_action
         self._output_nonlinearity = output_nonlinearity
 
-        LasagnePowered.__init__(self, [l_output])
+        LayersPowered.__init__(self, [l_output])
 
     def get_qval(self, observations, actions):
         return self._f_qval(observations, actions)
@@ -85,4 +80,4 @@ class ContinuousMLPQFunction(QFunction, LasagnePowered):
             {self._obs_layer: obs_var, self._action_layer: action_var},
             **kwargs
         )
-        return TT.reshape(qvals, (-1,))
+        return tf.reshape(qvals, (-1,))
