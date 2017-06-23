@@ -842,15 +842,6 @@ def launch_ec2(params_list, exp_prefix, docker_image, code_full_path,
         sio.write("""
             mkdir -p {log_dir}
         """.format(log_dir=log_dir))
-        git_diff = str(subprocess.check_output(['git', 'diff']).decode('utf-8'))
-        sio.write("""
-            cat << EOF > {0}
-            {1}
-            EOF
-        """.format(
-            osp.join(log_dir, "code.diff"),
-            git_diff,
-        ))
         if periodic_sync:
             include_png = " --include '*.png' " if sync_s3_png else " "
             include_pkl = " --include '*.pkl' " if sync_s3_pkl else " "
