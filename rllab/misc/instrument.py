@@ -914,9 +914,20 @@ def launch_ec2(params_list, exp_prefix, docker_image, code_full_path,
         """.format(remote_log_dir=remote_log_dir))
 
     if terminate_machine:
+        # sio.write("""
+        #     EC2_INSTANCE_ID="`wget -q -O - http://169.254.169.254/latest/meta-data/instance-id || die \"wget instance-id has failed: $?\"`"
+        #     aws ec2 terminate-instances --instance-ids $EC2_INSTANCE_ID --region {aws_region}
+        # """.format(aws_region=config.AWS_REGION_NAME))
+        # Keep trying to terminate the instance in case the first try failes
         sio.write("""
             EC2_INSTANCE_ID="`wget -q -O - http://169.254.169.254/latest/meta-data/instance-id || die \"wget instance-id has failed: $?\"`"
-            aws ec2 terminate-instances --instance-ids $EC2_INSTANCE_ID --region {aws_region}
+            n=0
+            until [ $n -ge 10 ]
+            do
+               aws ec2 terminate-instances --instance-ids $EC2_INSTANCE_ID --region {aws_region} && break
+               n=$[$n+1]
+               sleep $((RANDOM % 15))
+            done
         """.format(aws_region=config.AWS_REGION_NAME))
     sio.write("} >> /home/ubuntu/user_data.log 2>&1\n")
 
