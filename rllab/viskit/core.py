@@ -1,4 +1,5 @@
 import csv
+import math
 from rllab.misc import ext
 import os
 import numpy as np
@@ -127,9 +128,18 @@ def smart_repr(x):
             return "(%s,)" % smart_repr(x[0])
         else:
             return "(" + ",".join(map(smart_repr, x)) + ")"
+    elif isinstance(x, list):
+        if len(x) == 0:
+            return "[]"
+        elif len(x) == 1:
+            return "[%s,]" % smart_repr(x[0])
+        else:
+            return "[" + ",".join(map(smart_repr, x)) + "]"
     else:
         if hasattr(x, "__call__"):
             return "__import__('pydoc').locate('%s')" % (x.__module__ + "." + x.__name__)
+        elif isinstance(x, float) and math.isnan(x):
+            return 'float("nan")'
         else:
             return repr(x)
 
@@ -147,22 +157,24 @@ def extract_distinct_params(exps_data, excluded_params=('exp_name', 'seed', 'log
     #         return 0
 
     try:
+        params_as_evalable_strings = [
+            list(
+                map(
+                    smart_repr,
+                    list(d.flat_params.items())
+                )
+            )
+            for d in exps_data
+        ]
+        unique_params = unique(
+            flatten(
+                params_as_evalable_strings
+            )
+        )
         stringified_pairs = sorted(
             map(
                 eval,
-                unique(
-                    flatten(
-                        [
-                            list(
-                                map(
-                                    smart_repr,
-                                    list(d.flat_params.items())
-                                )
-                            )
-                            for d in exps_data
-                        ]
-                    )
-                )
+                unique_params
             ),
             key=lambda x: (
                 tuple(0. if it is None else it for it in x),

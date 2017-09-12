@@ -5,7 +5,7 @@ from rllab.misc import ext
 import theano
 
 
-class Box(Space):
+class Box(Space, Serializable):
     """
     A box in R^n.
     I.e., each coordinate is bounded.
@@ -17,6 +17,7 @@ class Box(Space):
             Box(-1.0, 1.0, (3,4)) # low and high are scalars, and shape is provided
             Box(np.array([-1.0,-2.0]), np.array([2.0,4.0])) # low and high are arrays of the same shape
         """
+        Serializable.quick_init(self, locals())
         if shape is None:
             assert low.shape == high.shape
             self.low = low
