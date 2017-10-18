@@ -177,7 +177,8 @@ def extract_distinct_params(exps_data, excluded_params=('exp_name', 'seed', 'log
                 unique_params
             ),
             key=lambda x: (
-                tuple(0. if it is None else it for it in x),
+                tuple(smart_repr(i) for i in x)
+                # tuple(0. if it is None else it for it in x),
             )
         )
     except Exception as e:
