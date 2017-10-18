@@ -100,6 +100,9 @@
                 <label><input type="checkbox" name="only_show_best_sofar" value="">Only show best so far</label><br>
             </div>
             <div class="checkbox pull-left" style="margin-left: 10px">
+                <label><input type="checkbox" name="best_is_lowest" value="">Best is lowest</label><br>
+            </div>
+            <div class="checkbox pull-left" style="margin-left: 10px">
                 <label><input type="checkbox" name="filter_nan" value="">Filter NaN</label><br>
             </div>
             <div class="checkbox pull-left" style="margin-left: 10px">
@@ -206,6 +209,7 @@
         var onlyShowBest = $controlPanel.find("input[type=checkbox][name=only_show_best]").is(':checked');
         var onlyShowBestFinal = $controlPanel.find("input[type=checkbox][name=only_show_best_final]").is(':checked');
         var onlyShowBestSofar = $controlPanel.find("input[type=checkbox][name=only_show_best_sofar]").is(':checked');
+        var bestIsLowest = $controlPanel.find("input[type=checkbox][name=best_is_lowest]").is(':checked');
         var filterNaN = $controlPanel.find("input[type=checkbox][name=filter_nan]").is(':checked');
         var smoothCurve = $controlPanel.find("input[type=checkbox][name=smooth_curve]").is(':checked');
         var normalizeError = $controlPanel.find("input[type=checkbox][name=normalize_error]").is(':checked');
@@ -220,6 +224,9 @@
         }
         if (onlyShowBestSofar === true) {
             onlyShowBestSofar = "True";
+        }
+        if (bestIsLowest === true) {
+            bestIsLowest = "True";
         }
         if (filterNaN === true) {
             filterNaN = "True";
@@ -243,6 +250,7 @@
                     "plot_key": plotKey, "split_key": splitKey,
                     "group_key": groupKey, "filters": JSON.stringify(filters), "use_median": useMedian,
                     "only_show_best": onlyShowBest, "clip_plot_value": clipPlotValue,
+                    "best_is_lowest": bestIsLowest,
                     "plot_width": plotWidth, "plot_height": plotHeight, "filter_nan": filterNaN,
                     "smooth_curve": smoothCurve, "custom_filter": customFilter, "legend_post_processor":
                     legendPostProcessor, "only_show_best_final": onlyShowBestFinal, "normalize_error": normalizeError,
