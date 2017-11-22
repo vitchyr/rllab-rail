@@ -1,7 +1,7 @@
 name: rllab3
 channels:
-    - https://conda.anaconda.org/kne 
-    - https://conda.anaconda.org/tlatorre 
+    - https://conda.anaconda.org/kne
+    - https://conda.anaconda.org/tlatorre
     - https://conda.anaconda.org/cjs14
     - https://conda.anaconda.org/menpo
     - jjhelmus
@@ -23,7 +23,7 @@ dependencies:
     - matplotlib
     - opencv3=3.1.0
     - scikit-learn
-    - pytorch==0.1.9
+    - pytorch==0.1.9  # TODO: change
     - torchvision==0.1.6
     - mpi4py
     - pandas
@@ -62,3 +62,8 @@ dependencies:
         - pylru==1.0.9
         - hyperopt
         - polling
+        - pyyaml
+        - rospy
+        - catkin_pkg
+        - rospkg
+        - gitpython
