@@ -245,6 +245,10 @@ def get_plot_instruction(
         normalize_error=False,
         custom_series_splitter=None,
 ):
+    """
+    A custom filter might look like
+    "lambda exp: exp.flat_params['algo_params_base_kwargs.batch_size'] == 64"
+    """
     print(plot_key, split_key, group_key, filters)
     if filter_nan:
         nonnan_exps_data = list(filter(check_nan, exps_data))
