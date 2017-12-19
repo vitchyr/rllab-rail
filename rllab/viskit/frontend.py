@@ -228,6 +228,7 @@ def get_plot_instruction(
         plot_key,
         split_key=None,
         group_key=None,
+        best_filter_key=None,
         filters=None,
         use_median=False,
         only_show_best=False,
@@ -306,10 +307,25 @@ def get_plot_instruction(
         for group_selector, group_legend in zip(group_selectors, group_legends):
             filtered_data = group_selector.extract()
             if len(filtered_data) > 0:
+                if best_filter_key:
+                    selectors = split_by_key(selector, best_filter_key, distinct_params)
+                    if use_median:
+                        best_to_plot = max(
+                            to_plot,
+                            key=lambda attr_dict: attr_dict.percentile50[-1]
+                        )
+                    else:
+                        best_to_plot = max(
+                            to_plot,
+                            key=lambda attr_dict: attr_dict.means[-1]
+                        )
+                    to_plot = [best_to_plot]
 
                 if only_show_best or only_show_best_final or only_show_best_sofar:
                     # Group by seed and sort.
                     # -----------------------
+                    import ipdb; ipdb.set_trace()
+
                     filtered_params = core.extract_distinct_params(
                         filtered_data, l=0)
                     filtered_params2 = [p[1] for p in filtered_params]
@@ -464,53 +480,19 @@ def get_plot_instruction(
                     window_size = np.maximum(
                         int(np.round(max_size / float(1000))), 1)
 
-                    if use_median:
-                        percentile25 = np.nanpercentile(
-                            progresses, q=25, axis=0)
-                        percentile50 = np.nanpercentile(
-                            progresses, q=50, axis=0)
-                        percentile75 = np.nanpercentile(
-                            progresses, q=75, axis=0)
-                        if smooth_curve:
-                            percentile25 = sliding_mean(percentile25,
-                                                        window=window_size)
-                            percentile50 = sliding_mean(percentile50,
-                                                        window=window_size)
-                            percentile75 = sliding_mean(percentile75,
-                                                        window=window_size)
-                        if clip_plot_value is not None:
-                            percentile25 = np.clip(percentile25,
-                                                   -clip_plot_value,
-                                                   clip_plot_value)
-                            percentile50 = np.clip(percentile50,
-                                                   -clip_plot_value,
-                                                   clip_plot_value)
-                            percentile75 = np.clip(percentile75,
-                                                   -clip_plot_value,
-                                                   clip_plot_value)
-                        to_plot.append(
-                            ext.AttrDict(percentile25=percentile25,
-                                         percentile50=percentile50,
-                                         percentile75=percentile75,
-                                         legend=legend_post_processor(
-                                             group_legend)))
-                    else:
-                        means = np.nanmean(progresses, axis=0)
-                        stds = np.nanstd(progresses, axis=0)
-                        if smooth_curve:
-                            means = sliding_mean(means,
-                                                 window=window_size)
-                            stds = sliding_mean(stds,
-                                                window=window_size)
-                        if clip_plot_value is not None:
-                            means = np.clip(means, -clip_plot_value,
-                                            clip_plot_value)
-                            stds = np.clip(stds, -clip_plot_value,
-                                           clip_plot_value)
-                        to_plot.append(
-                            ext.AttrDict(means=means, stds=stds,
-                                         legend=legend_post_processor(
-                                             group_legend)))
+                    statistics = get_statistics(progresses, use_median)
+                    statistics = process_statistics(
+                        statistics,
+                        smooth_curve,
+                        clip_plot_value,
+                        window_size,
+                    )
+                    to_plot.append(
+                        ext.AttrDict(
+                            legend=legend_post_processor(group_legend),
+                            **statistics
+                        )
+                    )
 
         if len(to_plot) > 0 and not gen_eps:
             fig_title = "%s: %s" % (split_key, split_legend)
@@ -525,6 +507,44 @@ def get_plot_instruction(
             make_plot_eps(to_plot, use_median=use_median, counter=counter)
         counter += 1
     return "\n".join(plots)
+
+
+def get_statistics(progresses, use_median):
+    if use_median:
+        return dict(
+            percentile25=np.nanpercentile(progresses, q=25, axis=0),
+            percentile50=np.nanpercentile(progresses, q=50, axis=0),
+            percentile75=np.nanpercentile(progresses, q=75, axis=0),
+        )
+    else:
+        return dict(
+            means=np.nanmean(progresses, axis=0),
+            stds=np.nanstd(progresses, axis=0),
+        )
+
+
+def process_statistics(statistics, smooth_curve, clip_plot_value, window_size):
+    clean_statistics = {}
+    for k, v in statistics.items():
+        clean_statistics[k] = v
+        if smooth_curve:
+            clean_statistics[k] = sliding_mean(v, window=window_size)
+        if clip_plot_value is not None:
+            clean_statistics[k] = np.clip(
+                clean_statistics[k],
+                -clip_plot_value,
+                clip_plot_value,
+            )
+    return clean_statistics
+
+
+def split_by_key(selector, key, distinct_params):
+    values = get_possible_values(distinct_params, key)
+    return [selector.where(key, v) for v in values]
+
+
+def get_possible_values(distinct_params, key):
+    return [vs for k, vs in distinct_params if k == key][0]
 
 
 def parse_float_arg(args, key):
@@ -542,12 +562,15 @@ def plot_div():
     plot_key = args.get("plot_key")
     split_key = args.get("split_key", "")
     group_key = args.get("group_key", "")
+    best_filter_key = args.get("best_filter_key", "")
     filters_json = args.get("filters", "{}")
     filters = json.loads(filters_json)
     if len(split_key) == 0:
         split_key = None
     if len(group_key) == 0:
         group_key = None
+    if len(best_filter_key) == 0:
+        best_filter_key = None
     # group_key = distinct_params[0][0]
     # print split_key
     # exp_filter = distinct_params[0]
@@ -586,6 +609,7 @@ def plot_div():
         split_key=split_key,
         filter_nan=filter_nan,
         group_key=group_key,
+        best_filter_key=best_filter_key,
         filters=filters, use_median=use_median,
         gen_eps=gen_eps,
         only_show_best=only_show_best,
