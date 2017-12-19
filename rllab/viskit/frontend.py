@@ -307,24 +307,27 @@ def get_plot_instruction(
         for group_selector, group_legend in zip(group_selectors, group_legends):
             filtered_data = group_selector.extract()
             if len(filtered_data) > 0:
-                if best_filter_key:
-                    selectors = split_by_key(selector, best_filter_key, distinct_params)
-                    if use_median:
-                        best_to_plot = max(
-                            to_plot,
-                            key=lambda attr_dict: attr_dict.percentile50[-1]
-                        )
-                    else:
-                        best_to_plot = max(
-                            to_plot,
-                            key=lambda attr_dict: attr_dict.means[-1]
-                        )
-                    to_plot = [best_to_plot]
+                if (best_filter_key
+                        and best_filter_key != group_key
+                        and best_filter_key != split_key):
+                    selectors = split_by_key(
+                        group_selector, best_filter_key, distinct_params
+                    )
+                    final_values = [
+                        get_final_value(plot_key, selector, use_median)
+                        for selector in selectors
+                    ]
+                    if np.isfinite(final_values).any():
+                        if best_is_lowest:
+                            best_idx = np.nanargmin(final_values)
+                        else:
+                            best_idx = np.nanargmax(final_values)
+
+                        filtered_data = selectors[best_idx].extract()
 
                 if only_show_best or only_show_best_final or only_show_best_sofar:
                     # Group by seed and sort.
                     # -----------------------
-                    import ipdb; ipdb.set_trace()
 
                     filtered_params = core.extract_distinct_params(
                         filtered_data, l=0)
@@ -410,56 +413,21 @@ def get_plot_instruction(
                             group_legend, best_regret, np.std(best_progress))
                         window_size = np.maximum(
                             int(np.round(max_size / float(1000))), 1)
-                        if use_median:
-                            percentile25 = np.nanpercentile(
-                                progresses, q=25, axis=0)
-                            percentile50 = np.nanpercentile(
-                                progresses, q=50, axis=0)
-                            percentile75 = np.nanpercentile(
-                                progresses, q=75, axis=0)
-                            if smooth_curve:
-                                percentile25 = sliding_mean(percentile25,
-                                                            window=window_size)
-                                percentile50 = sliding_mean(percentile50,
-                                                            window=window_size)
-                                percentile75 = sliding_mean(percentile75,
-                                                            window=window_size)
-                            if clip_plot_value is not None:
-                                percentile25 = np.clip(percentile25,
-                                                       -clip_plot_value,
-                                                       clip_plot_value)
-                                percentile50 = np.clip(percentile50,
-                                                       -clip_plot_value,
-                                                       clip_plot_value)
-                                percentile75 = np.clip(percentile75,
-                                                       -clip_plot_value,
-                                                       clip_plot_value)
-                            to_plot.append(
-                                ext.AttrDict(percentile25=percentile25,
-                                             percentile50=percentile50,
-                                             percentile75=percentile75,
-                                             legend=legend_post_processor(
-                                                 legend)))
-                        else:
-                            means = np.nanmean(progresses, axis=0)
-                            stds = np.nanstd(progresses, axis=0)
-                            if normalize_error:  # and len(progresses) > 0:
-                                stds /= np.sqrt(
-                                    np.sum((1. - np.isnan(progresses)), axis=0))
-                            if smooth_curve:
-                                means = sliding_mean(means,
-                                                     window=window_size)
-                                stds = sliding_mean(stds,
-                                                    window=window_size)
-                            if clip_plot_value is not None:
-                                means = np.clip(means, -clip_plot_value,
-                                                clip_plot_value)
-                                stds = np.clip(stds, -clip_plot_value,
-                                               clip_plot_value)
-                            to_plot.append(
-                                ext.AttrDict(means=means, stds=stds,
-                                             legend=legend_post_processor(
-                                                 legend)))
+                        statistics = get_statistics(
+                            progresses, use_median, normalize_error,
+                        )
+                        statistics = process_statistics(
+                            statistics,
+                            smooth_curve,
+                            clip_plot_value,
+                            window_size,
+                        )
+                        to_plot.append(
+                            ext.AttrDict(
+                                legend=legend_post_processor(legend),
+                                **statistics
+                            )
+                        )
                         if len(to_plot) > 0 and len(data) > 0:
                             to_plot[-1]["footnote"] = "%s; e.g. %s" % (
                                 kv_string_best_regret,
@@ -469,7 +437,8 @@ def get_plot_instruction(
                 else:
                     progresses = [
                         exp.progress.get(plot_key, np.array([np.nan])) for exp
-                        in filtered_data]
+                        in filtered_data
+                    ]
                     sizes = list(map(len, progresses))
                     # more intelligent:
                     max_size = max(sizes)
@@ -480,7 +449,9 @@ def get_plot_instruction(
                     window_size = np.maximum(
                         int(np.round(max_size / float(1000))), 1)
 
-                    statistics = get_statistics(progresses, use_median)
+                    statistics = get_statistics(
+                        progresses, use_median, normalize_error,
+                    )
                     statistics = process_statistics(
                         statistics,
                         smooth_curve,
@@ -509,7 +480,20 @@ def get_plot_instruction(
     return "\n".join(plots)
 
 
-def get_statistics(progresses, use_median):
+def get_final_value(key, selector, use_median):
+    data = selector.extract()
+    final_values = [
+        exp.progress.get(key, np.array([np.nan]))[-1]
+        for exp in data
+    ]
+
+    if use_median:
+        return np.nanpercentile(final_values, q=50, axis=0)
+    else:
+        return np.mean(final_values)
+
+
+def get_statistics(progresses, use_median, normalize_errors):
     if use_median:
         return dict(
             percentile25=np.nanpercentile(progresses, q=25, axis=0),
@@ -517,13 +501,21 @@ def get_statistics(progresses, use_median):
             percentile75=np.nanpercentile(progresses, q=75, axis=0),
         )
     else:
+        stds = np.nanstd(progresses, axis=0)
+        if normalize_errors:
+            stds /= np.sqrt(np.sum((1. - np.isnan(progresses)), axis=0))
         return dict(
             means=np.nanmean(progresses, axis=0),
-            stds=np.nanstd(progresses, axis=0),
+            stds=stds,
         )
 
 
-def process_statistics(statistics, smooth_curve, clip_plot_value, window_size):
+def process_statistics(
+        statistics,
+        smooth_curve,
+        clip_plot_value,
+        window_size
+):
     clean_statistics = {}
     for k, v in statistics.items():
         clean_statistics[k] = v
