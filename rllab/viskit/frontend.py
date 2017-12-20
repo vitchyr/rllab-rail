@@ -484,13 +484,15 @@ def get_final_value(key, selector, use_median):
     data = selector.extract()
     final_values = [
         exp.progress.get(key, np.array([np.nan]))[-1]
+        # TODO(vitchyr): add option to look at mean
+        # exp.progress.get(key, np.array([np.nan]))
         for exp in data
     ]
 
     if use_median:
         return np.nanpercentile(final_values, q=50, axis=0)
     else:
-        return np.mean(final_values)
+        return np.nanmean(final_values)
 
 
 def get_statistics(progresses, use_median, normalize_errors):
