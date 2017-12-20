@@ -232,7 +232,7 @@ def get_plot_instruction(
         filters=None,
         use_median=False,
         only_show_best=False,
-        only_show_best_final=False,
+        best_based_on_final=False,
         gen_eps=False,
         only_show_best_sofar=False,
         best_is_lowest=False,
@@ -313,19 +313,20 @@ def get_plot_instruction(
                     selectors = split_by_key(
                         group_selector, best_filter_key, distinct_params
                     )
-                    final_values = [
-                        get_final_value(plot_key, selector, use_median)
+                    scores = [
+                        get_selector_score(plot_key, selector, use_median, best_based_on_final)
                         for selector in selectors
                     ]
-                    if np.isfinite(final_values).any():
+
+                    if np.isfinite(scores).any():
                         if best_is_lowest:
-                            best_idx = np.nanargmin(final_values)
+                            best_idx = np.nanargmin(scores)
                         else:
-                            best_idx = np.nanargmax(final_values)
+                            best_idx = np.nanargmax(scores)
 
                         filtered_data = selectors[best_idx].extract()
 
-                if only_show_best or only_show_best_final or only_show_best_sofar:
+                if only_show_best or only_show_best_sofar:
                     # Group by seed and sort.
                     # -----------------------
 
@@ -357,7 +358,7 @@ def get_plot_instruction(
                                     [ps, np.ones(max_size - len(ps)) * np.nan])
                                 for ps in progresses]
 
-                            if only_show_best_final:
+                            if best_based_on_final:
                                 progresses = np.asarray(progresses)[:, -1]
                             if only_show_best_sofar:
                                 if best_is_lowest:
@@ -480,19 +481,31 @@ def get_plot_instruction(
     return "\n".join(plots)
 
 
-def get_final_value(key, selector, use_median):
+def get_selector_score(key, selector, use_median, best_based_on_final):
+    """
+    :param key: Thing to measure (e.g. Average Returns, Loss, etc.)
+    :param selector: Selector instance
+    :param use_median: Use the median? Else use the mean
+    :param best_based_on_final: Only look at the final value? Else use all
+    values.
+    :return: A single number that gives the score of `key` inside `selector`
+    """
     data = selector.extract()
-    final_values = [
-        exp.progress.get(key, np.array([np.nan]))[-1]
-        # TODO(vitchyr): add option to look at mean
-        # exp.progress.get(key, np.array([np.nan]))
-        for exp in data
-    ]
+    if best_based_on_final:
+        values = [
+            exp.progress.get(key, np.array([np.nan]))[-1]
+            for exp in data
+        ]
+    else:
+        values = np.concatenate([
+            exp.progress.get(key, np.array([np.nan]))
+            for exp in data
+        ] or [[np.nan]])
 
     if use_median:
-        return np.nanpercentile(final_values, q=50, axis=0)
+        return np.nanpercentile(values, q=50, axis=0)
     else:
-        return np.nanmean(final_values)
+        return np.nanmean(values)
 
 
 def get_statistics(progresses, use_median, normalize_errors):
@@ -571,7 +584,7 @@ def plot_div():
     use_median = args.get("use_median", "") == 'True'
     gen_eps = args.get("eps", "") == 'True'
     only_show_best = args.get("only_show_best", "") == 'True'
-    only_show_best_final = args.get("only_show_best_final", "") == 'True'
+    best_based_on_final = args.get("best_based_on_final", "") == 'True'
     only_show_best_sofar = args.get("only_show_best_sofar", "") == 'True'
     best_is_lowest = args.get("best_is_lowest", "") == 'True'
     normalize_error = args.get("normalize_error", "") == 'True'
@@ -607,7 +620,7 @@ def plot_div():
         filters=filters, use_median=use_median,
         gen_eps=gen_eps,
         only_show_best=only_show_best,
-        only_show_best_final=only_show_best_final,
+        best_based_on_final=best_based_on_final,
         only_show_best_sofar=only_show_best_sofar,
         best_is_lowest=best_is_lowest,
         clip_plot_value=clip_plot_value, plot_width=plot_width,

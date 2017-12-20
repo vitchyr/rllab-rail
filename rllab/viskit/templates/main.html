@@ -94,7 +94,7 @@
                 <label><input type="checkbox" name="only_show_best" value="">Only show best</label><br>
             </div>
             <div class="checkbox pull-left" style="margin-left: 10px">
-                <label><input type="checkbox" name="only_show_best_final" value="">Only show best final</label><br>
+                <label><input type="checkbox" name="best_based_on_final" value="">Best based on final</label><br>
             </div>
             <div class="checkbox pull-left" style="margin-left: 10px">
                 <label><input type="checkbox" name="only_show_best_sofar" value="">Only show best so far</label><br>
@@ -248,7 +248,7 @@
         });
         var useMedian = $controlPanel.find("input[type=checkbox][name=use_median]").is(':checked');
         var onlyShowBest = $controlPanel.find("input[type=checkbox][name=only_show_best]").is(':checked');
-        var onlyShowBestFinal = $controlPanel.find("input[type=checkbox][name=only_show_best_final]").is(':checked');
+        var bestBasedOnFinal = $controlPanel.find("input[type=checkbox][name=best_based_on_final]").is(':checked');
         var onlyShowBestSofar = $controlPanel.find("input[type=checkbox][name=only_show_best_sofar]").is(':checked');
         var bestIsLowest = $controlPanel.find("input[type=checkbox][name=best_is_lowest]").is(':checked');
         var filterNaN = $controlPanel.find("input[type=checkbox][name=filter_nan]").is(':checked');
@@ -260,8 +260,8 @@
         if (onlyShowBest === true) {
             onlyShowBest = "True";
         }
-        if (onlyShowBestFinal === true) {
-            onlyShowBestFinal = "True";
+        if (bestBasedOnFinal === true) {
+            bestBasedOnFinal = "True";
         }
         if (onlyShowBestSofar === true) {
             onlyShowBestSofar = "True";
@@ -288,16 +288,25 @@
         console.log("updating");
         $.get("/plot_div",
                 $.extend({
-                    "plot_key": plotKey, "split_key": splitKey,
+                    "plot_key": plotKey,
+                    "split_key": splitKey,
                     "group_key": groupKey,
                     "best_filter_key": bestFilterKey,
-                    "filters": JSON.stringify(filters), "use_median": useMedian,
-                    "only_show_best": onlyShowBest, "clip_plot_value": clipPlotValue,
+                    "filters": JSON.stringify(filters),
+                    "use_median": useMedian,
+                    "only_show_best": onlyShowBest,
+                    "clip_plot_value": clipPlotValue,
                     "best_is_lowest": bestIsLowest,
-                    "plot_width": plotWidth, "plot_height": plotHeight, "filter_nan": filterNaN,
-                    "smooth_curve": smoothCurve, "custom_filter": customFilter, "legend_post_processor":
-                    legendPostProcessor, "only_show_best_final": onlyShowBestFinal, "normalize_error": normalizeError,
-                    "custom_series_splitter": customSeriesSplitter, "only_show_best_sofar": onlyShowBestSofar,
+                    "plot_width": plotWidth,
+                    "plot_height": plotHeight,
+                    "filter_nan": filterNaN,
+                    "smooth_curve": smoothCurve,
+                    "custom_filter": customFilter,
+                    "legend_post_processor": legendPostProcessor,
+                    "best_based_on_final": bestBasedOnFinal,
+                    "normalize_error": normalizeError,
+                    "custom_series_splitter": customSeriesSplitter,
+                    "only_show_best_sofar": onlyShowBestSofar,
                 }, options),
                 function (data) {
                     $("#plot_wrapper").empty().append(data);
