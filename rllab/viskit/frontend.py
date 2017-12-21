@@ -296,44 +296,9 @@ def get_plot_instruction(
             group_legends = [x[0] for x in splitted]
         else:
             if len(group_keys) > 0:
-                list_of_group_key_and_unique_value = [
-                    [
-                        (group_key, v)
-                        for v in get_possible_values(distinct_params, group_key)
-                    ]
-                    for group_key in group_keys
-                ]
-                """
-                elements of list_of_group_key_and_unique_value should look like:
-                    - [(color, red), (color, blue), (color, green), ...]
-                    - [(season, spring), (season, summer), (season, fall), ...]
-                We now take the cartesian product so that we get all the
-                combinations, like:
-                    - [(color, red), (season, spring)]
-                    - [(color, blue), (season, spring)]
-                    - ...
-                """
-                group_selectors = []
-                group_legends = []
-                for group_key_and_value_list in itertools.product(
-                        *list_of_group_key_and_unique_value
-                ):
-                    group_selector = None
-                    keys = []
-                    for key, value in group_key_and_value_list:
-                        keys.append(key)
-                        if group_selector is None:
-                            group_selector = split_selector.where(key, value)
-                        else:
-                            group_selector = group_selector.where(key, value)
-                    group_selectors.append(group_selector)
-                    group_legends.append(", ".join([
-                        "{0}={1}".format(
-                            shorten_key(key),
-                            value,
-                        )
-                        for key, value in group_key_and_value_list
-                    ]))
+                group_selectors, group_legends = split_by_keys(
+                    split_selector, group_keys, distinct_params
+                )
             else:
                 group_key = "exp_name"
                 group_keys = [group_key]
@@ -343,8 +308,6 @@ def get_plot_instruction(
                                    vs]
                 group_legends = [summary_name(x.extract()[0], split_selector)
                                  for x in group_selectors]
-        # group_selectors = [split_selector]
-        # group_legends = [split_legend]
         to_plot = []
         for group_selector, group_legend in zip(group_selectors, group_legends):
             filtered_data = group_selector.extract()
@@ -610,18 +573,68 @@ def process_statistics(
     return clean_statistics
 
 
+def get_possible_values(distinct_params, key):
+    return [vs for k, vs in distinct_params if k == key][0]
+
+
 def split_by_key(selector, key, distinct_params):
     """
-    Returna  list of selectors based on this selector.
+    Return a list of selectors based on this selector.
     Each selector represents one distinct value of `key`.
     """
     values = get_possible_values(distinct_params, key)
     return [selector.where(key, v) for v in values]
 
 
-def get_possible_values(distinct_params, key):
-    return [vs for k, vs in distinct_params if k == key][0]
+def split_by_keys(base_selector, keys, distinct_params):
+    """
+    Return a list of selectors based on the base_selector.
+    Each selector represents one distinct set of values for each key in `keys`.
 
+    :param base_selector:
+    :param keys:
+    :param distinct_params:
+    :return:
+    """
+    list_of_key_and_unique_value = [
+        [
+            (key, v)
+            for v in get_possible_values(distinct_params, key)
+        ]
+        for key in keys
+    ]
+    """
+    elements of list_of_key_and_unique_value should look like:
+        - [(color, red), (color, blue), (color, green), ...]
+        - [(season, spring), (season, summer), (season, fall), ...]
+    We now take the cartesian product so that we get all the
+    combinations, like:
+        - [(color, red), (season, spring)]
+        - [(color, blue), (season, spring)]
+        - ...
+    """
+    selectors = []
+    descriptions = []
+    for key_and_value_list in itertools.product(
+            *list_of_key_and_unique_value
+    ):
+        selector = None
+        keys = []
+        for key, value in key_and_value_list:
+            keys.append(key)
+            if selector is None:
+                selector = base_selector.where(key, value)
+            else:
+                selector = selector.where(key, value)
+        selectors.append(selector)
+        descriptions.append(", ".join([
+            "{0}={1}".format(
+                shorten_key(key),
+                value,
+            )
+            for key, value in key_and_value_list
+        ]))
+    return selectors, descriptions
 
 def parse_float_arg(args, key):
     x = args.get(key, "")
