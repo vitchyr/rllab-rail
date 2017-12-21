@@ -197,6 +197,12 @@ def extract_distinct_params(exps_data, excluded_params=('exp_name', 'seed', 'log
     ]
     return filtered
 
+def exp_has_key_value(exp, k, v):
+    return (
+        str(exp.flat_params.get(k, None)) == str(v)
+        or (k not in exp.flat_params)
+    )
+
 
 class Selector(object):
     def __init__(self, exps_data, filters=None, custom_filters=None):
@@ -211,7 +217,20 @@ class Selector(object):
             self._custom_filters = custom_filters
 
     def where(self, k, v):
-        return Selector(self._exps_data, self._filters + ((k, v),), self._custom_filters)
+        return Selector(
+            self._exps_data,
+            self._filters + ((k, v),),
+            self._custom_filters,
+        )
+
+    def where_not(self, k, v):
+        return Selector(
+            self._exps_data,
+            self._filters,
+            self._custom_filters + [
+                lambda exp: not exp_has_key_value(exp, k, v)
+            ],
+        )
 
     def custom_filter(self, filter):
         return Selector(self._exps_data, self._filters, self._custom_filters + [filter])
@@ -219,7 +238,10 @@ class Selector(object):
     def _check_exp(self, exp):
         # or exp.flat_params.get(k, None) is None
         return all(
-            ((str(exp.flat_params.get(k, None)) == str(v) or (k not in exp.flat_params)) for k, v in self._filters)
+            (
+                exp_has_key_value(exp, k, v)
+                for k, v in self._filters
+            )
         ) and all(custom_filter(exp) for custom_filter in self._custom_filters)
 
     def extract(self):

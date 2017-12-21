@@ -230,6 +230,7 @@ def get_plot_instruction(
         group_key=None,
         best_filter_key=None,
         filters=None,
+        exclusions=None,
         use_median=False,
         only_show_best=False,
         best_based_on_final=False,
@@ -260,8 +261,12 @@ def get_plot_instruction(
         legend_post_processor = lambda x: x
     if filters is None:
         filters = dict()
+    if exclusions is None:
+        exclusions = []
     for k, v in filters.items():
         selector = selector.where(k, str(v))
+    for k, v in exclusions:
+        selector = selector.where_not(k, str(v))
     if custom_filter is not None:
         selector = selector.custom_filter(custom_filter)
     # print selector._filters
@@ -572,6 +577,8 @@ def plot_div():
     best_filter_key = args.get("best_filter_key", "")
     filters_json = args.get("filters", "{}")
     filters = json.loads(filters_json)
+    exclusions_json = args.get("exclusions", "{}")
+    exclusions = json.loads(exclusions_json)
     if len(split_key) == 0:
         split_key = None
     if len(group_key) == 0:
@@ -617,7 +624,9 @@ def plot_div():
         filter_nan=filter_nan,
         group_key=group_key,
         best_filter_key=best_filter_key,
-        filters=filters, use_median=use_median,
+        filters=filters,
+        exclusions=exclusions,
+        use_median=use_median,
         gen_eps=gen_eps,
         only_show_best=only_show_best,
         best_based_on_final=best_based_on_final,
