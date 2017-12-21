@@ -301,11 +301,12 @@ def get_plot_instruction(
                 )
             else:
                 group_key = "exp_name"
-                group_keys = [group_key]
                 vs = sorted(
-                    [x.params["exp_name"] for x in split_selector.extract()])
-                group_selectors = [split_selector.where(group_key, v) for v in
-                                   vs]
+                    [x.params["exp_name"] for x in split_selector.extract()]
+                )
+                group_selectors = [
+                    split_selector.where(group_key, v) for v in vs
+                ]
                 group_legends = [summary_name(x.extract()[0], split_selector)
                                  for x in group_selectors]
         to_plot = []
