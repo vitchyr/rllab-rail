@@ -25,8 +25,12 @@ def flatten(l):
 def load_progress(progress_csv_path):
     print("Reading %s" % progress_csv_path)
     entries = dict()
+    if progress_csv_path.split('.')[-1] == "csv":
+        delimiter = ','
+    else:
+        delimiter = '\t'
     with open(progress_csv_path, 'r') as csvfile:
-        reader = csv.DictReader(csvfile)
+        reader = csv.DictReader(csvfile, delimiter=delimiter)
         for row in reader:
             for k, v in row.items():
                 if k not in entries:
@@ -105,6 +109,8 @@ def load_exps_data(exp_folder_paths,disable_variant=False):
             params_json_path = os.path.join(exp_path, "params.json")
             variant_json_path = os.path.join(exp_path, "variant.json")
             progress_csv_path = os.path.join(exp_path, "progress.csv")
+            if os.stat(progress_csv_path).st_size == 0:
+                progress_csv_path = os.path.join(exp_path, "log.txt")
             progress = load_progress(progress_csv_path)
             if disable_variant:
                 params = load_params(params_json_path)
