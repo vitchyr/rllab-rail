@@ -226,8 +226,8 @@ def check_nan(exp):
 
 def get_plot_instruction(
         plot_key,
-        split_key=None,
-        group_key=None,
+        split_keys=None,
+        group_keys=None,
         best_filter_key=None,
         filters=None,
         exclusions=None,
@@ -251,7 +251,7 @@ def get_plot_instruction(
     A custom filter might look like
     "lambda exp: exp.flat_params['algo_params_base_kwargs.batch_size'] == 64"
     """
-    print(plot_key, split_key, group_key, filters)
+    print(plot_key, split_keys, group_keys, filters)
     if filter_nan:
         nonnan_exps_data = list(filter(check_nan, exps_data))
         selector = core.Selector(nonnan_exps_data)
@@ -263,24 +263,27 @@ def get_plot_instruction(
         filters = dict()
     if exclusions is None:
         exclusions = []
+    if split_keys is None:
+        split_keys = []
+    if group_keys is None:
+        group_keys = []
     for k, v in filters.items():
         selector = selector.where(k, str(v))
     for k, v in exclusions:
         selector = selector.where_not(k, str(v))
     if custom_filter is not None:
         selector = selector.custom_filter(custom_filter)
-    # print selector._filters
 
-    if split_key is not None:
-        vs = [vs for k, vs in distinct_params if k == split_key][0]
-        split_selectors = [selector.where(split_key, v) for v in vs]
-        split_legends = list(map(str, vs))
+    if len(split_keys) > 0:
+        split_selectors, split_titles = split_by_keys(
+            selector, split_keys, distinct_params
+        )
     else:
         split_selectors = [selector]
-        split_legends = ["Plot"]
+        split_titles = ["Plot"]
     plots = []
     counter = 1
-    for split_selector, split_legend in zip(split_selectors, split_legends):
+    for split_selector, split_title in zip(split_selectors, split_titles):
         if custom_series_splitter is not None:
             exps = split_selector.extract()
             splitted_dict = dict()
@@ -293,28 +296,20 @@ def get_plot_instruction(
             group_selectors = [core.Selector(list(x[1])) for x in splitted]
             group_legends = [x[0] for x in splitted]
         else:
-            if group_key and group_key is not "exp_name":
-                vs = [vs for k, vs in distinct_params if k == group_key][0]
-                group_selectors = [split_selector.where(group_key, v) for v in
-                                   vs]
-                group_legends = [str(x) for x in vs]
+            if len(group_keys) > 0:
+                group_selectors, group_legends = split_by_keys(
+                    split_selector, group_keys, distinct_params
+                )
             else:
-                group_key = "exp_name"
-                vs = sorted(
-                    [x.params["exp_name"] for x in split_selector.extract()])
-                group_selectors = [split_selector.where(group_key, v) for v in
-                                   vs]
-                group_legends = [summary_name(x.extract()[0], split_selector)
-                                 for x in group_selectors]
-        # group_selectors = [split_selector]
-        # group_legends = [split_legend]
+                group_selectors = [split_selector]
+                group_legends = [split_title]
         to_plot = []
         for group_selector, group_legend in zip(group_selectors, group_legends):
             filtered_data = group_selector.extract()
             if len(filtered_data) > 0:
                 if (best_filter_key
-                        and best_filter_key != group_key
-                        and best_filter_key != split_key):
+                        and best_filter_key not in group_keys
+                        and best_filter_key not in split_keys):
                     selectors = split_by_key(
                         group_selector, best_filter_key, distinct_params
                     )
@@ -472,7 +467,7 @@ def get_plot_instruction(
                     )
 
         if len(to_plot) > 0 and not gen_eps:
-            fig_title = "%s: %s" % (split_key, split_legend)
+            fig_title = split_title
             # plots.append("<h3>%s</h3>" % fig_title)
             plots.append(make_plot(
                 to_plot,
@@ -484,6 +479,19 @@ def get_plot_instruction(
             make_plot_eps(to_plot, use_median=use_median, counter=counter)
         counter += 1
     return "\n".join(plots)
+
+
+def shorten_key(key):
+    """
+    Convert a dot-map string like "foo.bar.baz" into "f.b.baz"
+    """
+    *heads, tail = key.split(".")
+    new_key_builder = []
+    for subkey in heads:
+        if len(subkey) > 0:
+            new_key_builder.append(subkey[0])
+    new_key_builder.append(tail)
+    return ".".join(new_key_builder)
 
 
 def get_selector_score(key, selector, use_median, best_based_on_final):
@@ -514,6 +522,13 @@ def get_selector_score(key, selector, use_median, best_based_on_final):
 
 
 def get_statistics(progresses, use_median, normalize_errors):
+    """
+    Get some dictionary of statistics (e.g. the median, mean).
+    :param progresses:
+    :param use_median:
+    :param normalize_errors:
+    :return:
+    """
     if use_median:
         return dict(
             percentile25=np.nanpercentile(progresses, q=25, axis=0),
@@ -536,6 +551,9 @@ def process_statistics(
         clip_plot_value,
         window_size
 ):
+    """
+    Smoothen and clip time-series data.
+    """
     clean_statistics = {}
     for k, v in statistics.items():
         clean_statistics[k] = v
@@ -550,14 +568,68 @@ def process_statistics(
     return clean_statistics
 
 
+def get_possible_values(distinct_params, key):
+    return [vs for k, vs in distinct_params if k == key][0]
+
+
 def split_by_key(selector, key, distinct_params):
+    """
+    Return a list of selectors based on this selector.
+    Each selector represents one distinct value of `key`.
+    """
     values = get_possible_values(distinct_params, key)
     return [selector.where(key, v) for v in values]
 
 
-def get_possible_values(distinct_params, key):
-    return [vs for k, vs in distinct_params if k == key][0]
+def split_by_keys(base_selector, keys, distinct_params):
+    """
+    Return a list of selectors based on the base_selector.
+    Each selector represents one distinct set of values for each key in `keys`.
 
+    :param base_selector:
+    :param keys:
+    :param distinct_params:
+    :return:
+    """
+    list_of_key_and_unique_value = [
+        [
+            (key, v)
+            for v in get_possible_values(distinct_params, key)
+        ]
+        for key in keys
+    ]
+    """
+    elements of list_of_key_and_unique_value should look like:
+        - [(color, red), (color, blue), (color, green), ...]
+        - [(season, spring), (season, summer), (season, fall), ...]
+    We now take the cartesian product so that we get all the
+    combinations, like:
+        - [(color, red), (season, spring)]
+        - [(color, blue), (season, spring)]
+        - ...
+    """
+    selectors = []
+    descriptions = []
+    for key_and_value_list in itertools.product(
+            *list_of_key_and_unique_value
+    ):
+        selector = None
+        keys = []
+        for key, value in key_and_value_list:
+            keys.append(key)
+            if selector is None:
+                selector = base_selector.where(key, value)
+            else:
+                selector = selector.where(key, value)
+        selectors.append(selector)
+        descriptions.append(", ".join([
+            "{0}={1}".format(
+                shorten_key(key),
+                value,
+            )
+            for key, value in key_and_value_list
+        ]))
+    return selectors, descriptions
 
 def parse_float_arg(args, key):
     x = args.get(key, "")
@@ -572,22 +644,17 @@ def plot_div():
     #     reload_data()
     args = flask.request.args
     plot_key = args.get("plot_key")
-    split_key = args.get("split_key", "")
-    group_key = args.get("group_key", "")
+    split_keys_json = args.get("split_keys", "[]")
+    split_keys = json.loads(split_keys_json)
+    group_keys_json = args.get("group_keys", "[]")
+    group_keys = json.loads(group_keys_json)
     best_filter_key = args.get("best_filter_key", "")
     filters_json = args.get("filters", "{}")
     filters = json.loads(filters_json)
     exclusions_json = args.get("exclusions", "{}")
     exclusions = json.loads(exclusions_json)
-    if len(split_key) == 0:
-        split_key = None
-    if len(group_key) == 0:
-        group_key = None
     if len(best_filter_key) == 0:
         best_filter_key = None
-    # group_key = distinct_params[0][0]
-    # print split_key
-    # exp_filter = distinct_params[0]
     use_median = args.get("use_median", "") == 'True'
     gen_eps = args.get("eps", "") == 'True'
     only_show_best = args.get("only_show_best", "") == 'True'
@@ -620,9 +687,9 @@ def plot_div():
         custom_series_splitter = None
     plot_div = get_plot_instruction(
         plot_key=plot_key,
-        split_key=split_key,
+        split_keys=split_keys,
         filter_nan=filter_nan,
-        group_key=group_key,
+        group_keys=group_keys,
         best_filter_key=best_filter_key,
         filters=filters,
         exclusions=exclusions,
@@ -632,9 +699,11 @@ def plot_div():
         best_based_on_final=best_based_on_final,
         only_show_best_sofar=only_show_best_sofar,
         best_is_lowest=best_is_lowest,
-        clip_plot_value=clip_plot_value, plot_width=plot_width,
+        clip_plot_value=clip_plot_value,
+        plot_width=plot_width,
         plot_height=plot_height,
-        smooth_curve=smooth_curve, custom_filter=custom_filter,
+        smooth_curve=smooth_curve,
+        custom_filter=custom_filter,
         legend_post_processor=legend_post_processor,
         normalize_error=normalize_error,
         custom_series_splitter=custom_series_splitter,
@@ -655,26 +724,18 @@ def safer_eval(some_string):
 
 @app.route("/")
 def index():
-    # exp_folder_path = "data/s3/experiments/ppo-atari-3"
-    # _load_data(exp_folder_path)
-    # exp_json = json.dumps(exp_data)
     if "AverageReturn" in plottable_keys:
         plot_key = "AverageReturn"
     elif len(plottable_keys) > 0:
         plot_key = plottable_keys[0]
     else:
         plot_key = None
-    if len(distinct_params) > 0:
-        group_key = distinct_params[0][0]
-    else:
-        group_key = None
-    plot_div = get_plot_instruction(
-        plot_key=plot_key, split_key=None, group_key=group_key)
+    plot_div = get_plot_instruction(plot_key=plot_key)
     return flask.render_template(
         "main.html",
         plot_div=plot_div,
         plot_key=plot_key,
-        group_key=group_key,
+        group_keys=[],
         plottable_keys=plottable_keys,
         distinct_param_keys=[str(k) for k, v in distinct_params],
         distinct_params=dict([(str(k), list(map(str, v)))
