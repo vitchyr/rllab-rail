@@ -448,7 +448,7 @@ def get_plot_instruction(
                             [ps, np.ones(max_size - len(ps)) * np.nan]) for ps
                         in progresses]
                     window_size = np.maximum(
-                        int(np.round(max_size / float(1000))), 1)
+                        int(np.round(max_size / float(100))), 1)
 
                     statistics = get_statistics(
                         progresses, use_median, normalize_error,
