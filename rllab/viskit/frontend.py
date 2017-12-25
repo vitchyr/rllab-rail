@@ -89,19 +89,6 @@ def make_plot(plot_list, use_median=False, plot_width=None, plot_height=None,
             legendgroup=plt.legend,
             line=dict(color=core.hex_to_rgb(color)),
         ))
-    p25str = '['
-    p50str = '['
-    p75str = '['
-    for p25e, p50e, p75e in zip(p25, p50, p75):
-        p25str += (str(p25e) + ',')
-        p50str += (str(p50e) + ',')
-        p75str += (str(p75e) + ',')
-    p25str += ']'
-    p50str += ']'
-    p75str += ']'
-    print(p25str)
-    print(p50str)
-    print(p75str)
 
     layout = go.Layout(
         legend=dict(
@@ -283,6 +270,10 @@ def get_plot_instruction(
         split_titles = ["Plot"]
     plots = []
     counter = 1
+    print("filters:")
+    print(filters)
+    print("exclusions:")
+    print(exclusions)
     for split_selector, split_title in zip(split_selectors, split_titles):
         if custom_series_splitter is not None:
             exps = split_selector.extract()
@@ -324,7 +315,16 @@ def get_plot_instruction(
                         else:
                             best_idx = np.nanargmax(scores)
 
-                        filtered_data = selectors[best_idx].extract()
+                        best_selector = selectors[best_idx]
+                        filtered_data = best_selector.extract()
+                        print("For split '{0}', group '{1}':".format(
+                            split_title,
+                            group_legend,
+                        ))
+                        print("    best '{0}': {1}".format(
+                            best_filter_key,
+                            dict(best_selector._filters)[best_filter_key]
+                        ))
 
                 if only_show_best or only_show_best_sofar:
                     # Group by seed and sort.
