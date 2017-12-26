@@ -515,6 +515,8 @@ def get_selector_score(key, selector, use_median, best_based_on_final):
             for exp in data
         ] or [[np.nan]])
 
+    if len(values) == 0 or not np.isfinite(values).all():
+        return np.nan
     if use_median:
         return np.nanpercentile(values, q=50, axis=0)
     else:
