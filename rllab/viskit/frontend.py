@@ -238,7 +238,6 @@ def get_plot_instruction(
     A custom filter might look like
     "lambda exp: exp.flat_params['algo_params_base_kwargs.batch_size'] == 64"
     """
-    print(plot_key, split_keys, group_keys, filters)
     if filter_nan:
         nonnan_exps_data = list(filter(check_nan, exps_data))
         selector = core.Selector(nonnan_exps_data)
@@ -270,6 +269,9 @@ def get_plot_instruction(
         split_titles = ["Plot"]
     plots = []
     counter = 1
+    print("Plot_key:", plot_key)
+    print("split_keys:", split_keys)
+    print("group_keys:", group_keys)
     print("filters:")
     print(filters)
     print("exclusions:")
