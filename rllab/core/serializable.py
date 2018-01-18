@@ -15,9 +15,12 @@ class Serializable(object):
             spec = inspect.getfullargspec(self.__init__)
             # Exclude the first "self" parameter
             if spec.varkw:
-                kwargs = locals_[spec.varkw]
+                kwargs = locals_[spec.varkw].copy()
             else:
                 kwargs = dict()
+            if spec.kwonlyargs:
+                for key in spec.kwonlyargs:
+                    kwargs[key] = locals_[key]
         else:
             spec = inspect.getargspec(self.__init__)
             if spec.keywords:
